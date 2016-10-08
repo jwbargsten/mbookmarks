@@ -39,6 +39,9 @@ if ( $cmd =~ /^o/ ) {
 } elsif ( $cmd =~ /^m/ ) {
   #mutt
   system( 'mutt', '-f', $bookmark_dir ) == 0 or die "system failed: $?";
+  system( 'git', '-C', $bookmark_dir, 'add', '.' ) == 0 or die "system failed: $?";
+  system( 'git', '-C', $bookmark_dir, 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0
+    or die "system failed: $?";
 } elsif ( $cmd =~ /^a/ ) {
   #add
 
@@ -116,6 +119,8 @@ if ( $cmd =~ /^o/ ) {
   my $msg = Mail::Message->build(%msg_info);
 
   $folder->addMessage($msg);
+  #$msg->label(seen => 1);
+  #$msg->accept(1);
 
   $folder->close;
   system( 'git', '-C', $bookmark_dir, 'add', '.' ) == 0 or die "system failed: $?";
