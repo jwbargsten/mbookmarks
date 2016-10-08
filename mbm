@@ -21,13 +21,22 @@ use Getopt::Long;
 my $cmd = shift;
 
 die "no command" unless ($cmd);
+my $bookmark_dir = "$ENV{HOME}/.mbookmarks";
 
 if ( $cmd =~ /^g/ ) {
   # git
 
-  system( 'git', '-C', "$ENV{HOME}/.mdbookmarks", @ARGV ) == 0 or die "system failed: $?";
+  system( 'git', '-C',$bookmark_dir , @ARGV ) == 0 or die "system failed: $?";
+} elsif($cmd =~ /^m/) {
+  #mutt
+  system('mutt', '-f', $bookmark_dir) == 0 or die "system failed: $?";
 } elsif ( $cmd =~ /^a/ ) {
   #add
+
+  unless(-d $bookmark_dir) {
+    system('mkdir', '-p', $bookmark_dir) == 0 or die "system failed: $?";
+    system('git', '-C', $bookmark_dir, 'init') == 0 or die "system failed: $?";
+  }
 
   my %opt = ( tag => [], note => [] );
   GetOptions( \%opt, 'help', 'tag|t=s@', 'note|n=s@' ) or pod2usage(2);
@@ -64,7 +73,9 @@ if ( $cmd =~ /^g/ ) {
     rightmargin => 111,
   );
 
-  my $folder = Mail::Box::Maildir->new( 'folder' => "$ENV{HOME}/.mdbookmarks", access => 'rw', create => 1 );
+  my $folder = Mail::Box::Maildir->new( 'folder' => $bookmark_dir, access => 'rw', create => 1 );
+  $folder->createDirs($bookmark_dir);
+
   my %msg_info = (
     From             => $from,
     To               => $uri->host,
@@ -86,8 +97,8 @@ if ( $cmd =~ /^g/ ) {
   $folder->addMessage($msg);
 
   $folder->close;
-  system( 'git', '-C', "$ENV{HOME}/.mdbookmarks", 'add', '.' ) == 0 or die "system failed: $?";
-  system( 'git', '-C', "$ENV{HOME}/.mdbookmarks", 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0 or die "system failed: $?";
+  system( 'git', '-C', $bookmark_dir, 'add', '.' ) == 0 or die "system failed: $?";
+  system( 'git', '-C', $bookmark_dir, 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0 or die "system failed: $?";
 } else {
   die "command not recognised";
 }
