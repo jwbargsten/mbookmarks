@@ -1,0 +1,93 @@
+#!/usr/bin/env perl
+# created on 2016-09-08
+
+use warnings;
+use strict;
+use 5.010;
+use IO::Handle ();
+
+use Mail::Box::Maildir;
+use Mail::Message;
+use Mail::Message::Body;
+use File::Spec;
+use HTML::FormatText;
+use LWP::UserAgent;
+use Sys::Hostname;
+use URI;
+
+use Pod::Usage;
+use Getopt::Long;
+
+my $cmd = shift;
+
+die "no command" unless ($cmd);
+
+if ( $cmd =~ /^g/ ) {
+  # git
+
+  system( 'git', '-C', "$ENV{HOME}/.mdbookmarks", @ARGV ) == 0 or die "system failed: $?";
+} elsif ( $cmd =~ /^a/ ) {
+  #add
+
+  my %opt = ( tag => [], note => [] );
+  GetOptions( \%opt, 'help', 'tag|t=s@', 'note|n=s@' ) or pod2usage(2);
+
+  pod2usage( -exitval => 0, -verbose => 2 ) if ( $opt{help} );
+  pod2usage(2)
+    unless ( @ARGV && @ARGV > 0 );
+
+  my $address = shift;
+  my $uri     = URI->new($address);
+
+  my $ua = LWP::UserAgent->new;
+  $ua->timeout(10);
+  $ua->env_proxy;
+
+  my $response = $ua->get($address);
+
+  my $content;
+  my $title;
+  if ( $response->is_success ) {
+    $content = $response->decoded_content;
+    $title   = $response->title;
+  } else {
+    warn $response->status_line;
+    $content = '';
+    $title   = $uri->authority . $uri->path;
+  }
+
+  my $from = join( '@', $ENV{USER}, ( $ENV{HOSTNAME} || hostname() ) );
+
+  my $string = HTML::FormatText->format_string(
+    $content,
+    leftmargin  => 3,
+    rightmargin => 111,
+  );
+
+  my $folder = Mail::Box::Maildir->new( 'folder' => "$ENV{HOME}/.mdbookmarks", access => 'rw', create => 1 );
+  my %msg_info = (
+    From             => $from,
+    To               => $uri->host,
+    Subject          => $title,
+    'X-Bookmark-URL' => $address,
+  );
+  if ( @{ $opt{note} } ) {
+    #$string = "NOTES:\n" . join( "\n\n", @{$opt{note}} ) . "\n\n--\n\n" . $string;
+    $msg_info{'X-Bookmark-Notes'} = $opt{note};
+  }
+  $msg_info{data} = $string;
+
+  if ( @{ $opt{tag} } ) {
+    $msg_info{'X-Bookmark-Tags'} = $opt{tag};
+  }
+
+  my $msg = Mail::Message->build(%msg_info);
+
+  $folder->addMessage($msg);
+
+  $folder->close;
+  system( 'git', '-C', "$ENV{HOME}/.mdbookmarks", 'add', '.' ) == 0 or die "system failed: $?";
+  system( 'git', '-C', "$ENV{HOME}/.mdbookmarks", 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0 or die "system failed: $?";
+} else {
+  die "command not recognised";
+}
