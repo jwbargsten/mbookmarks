@@ -28,6 +28,11 @@ Add a bookmark
     mbm a https://github.com/jwbargsten/mbookmarks
     mbm a --note 'cool repo' --tag perl --tag apps https://github.com/jwbargsten/mbookmarks
 
+Run `mutt`
+
+    mbm mutt
+    mbm m
+
 Execute git commands in the mbm repo (`~/.mbookmarks`)
 
     mbm git ...
