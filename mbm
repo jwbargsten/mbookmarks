@@ -13,6 +13,7 @@ use File::Spec;
 use HTML::FormatText;
 use LWP::UserAgent;
 use Sys::Hostname;
+use Mail::Message::Body::String;
 use URI;
 
 use Pod::Usage;
@@ -23,19 +24,25 @@ my $cmd = shift;
 die "no command" unless ($cmd);
 my $bookmark_dir = "$ENV{HOME}/.mbookmarks";
 
-if ( $cmd =~ /^g/ ) {
+if ( $cmd =~ /^o/ ) {
+
+  my $msg = Mail::Message->read(\*STDIN);
+  my $url = $msg->get("X-Bookmark-URL");
+
+  system( 'xdg-open', $url ) == 0 or die "system failed: $?";
+} elsif ( $cmd =~ /^g/ ) {
   # git
 
-  system( 'git', '-C',$bookmark_dir , @ARGV ) == 0 or die "system failed: $?";
-} elsif($cmd =~ /^m/) {
+  system( 'git', '-C', $bookmark_dir, @ARGV ) == 0 or die "system failed: $?";
+} elsif ( $cmd =~ /^m/ ) {
   #mutt
-  system('mutt', '-f', $bookmark_dir) == 0 or die "system failed: $?";
+  system( 'mutt', '-f', $bookmark_dir ) == 0 or die "system failed: $?";
 } elsif ( $cmd =~ /^a/ ) {
   #add
 
-  unless(-d $bookmark_dir) {
-    system('mkdir', '-p', $bookmark_dir) == 0 or die "system failed: $?";
-    system('git', '-C', $bookmark_dir, 'init') == 0 or die "system failed: $?";
+  unless ( -d $bookmark_dir ) {
+    system( 'mkdir', '-p', $bookmark_dir ) == 0 or die "system failed: $?";
+    system( 'git', '-C', $bookmark_dir, 'init' ) == 0 or die "system failed: $?";
   }
 
   my %opt = ( tag => [], note => [] );
@@ -98,7 +105,8 @@ if ( $cmd =~ /^g/ ) {
 
   $folder->close;
   system( 'git', '-C', $bookmark_dir, 'add', '.' ) == 0 or die "system failed: $?";
-  system( 'git', '-C', $bookmark_dir, 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0 or die "system failed: $?";
+  system( 'git', '-C', $bookmark_dir, 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0
+    or die "system failed: $?";
 } else {
   die "command not recognised";
 }

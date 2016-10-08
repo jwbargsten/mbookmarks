@@ -37,3 +37,12 @@ Execute git commands in the mbm repo (`~/.mbookmarks`)
 
     mbm git ...
     mbm g ...
+
+## mutt-specific stuff
+
+Use mbm open as pager to open the URLs in xdg-open
+
+`~/.muttrc`:
+
+    macro pager | "<pipe-entry>mbm open<enter>"
+    macro attach | "<pipe-entry>mbm open<enter>"
