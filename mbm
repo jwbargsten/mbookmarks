@@ -15,6 +15,8 @@ use LWP::UserAgent;
 use Sys::Hostname;
 use Mail::Message::Body::String;
 use URI;
+use Encode;
+use HTML::Tree;
 
 use Pod::Usage;
 use Getopt::Long;
@@ -26,7 +28,7 @@ my $bookmark_dir = "$ENV{HOME}/.mbookmarks";
 
 if ( $cmd =~ /^o/ ) {
 
-  my $msg = Mail::Message->read(\*STDIN);
+  my $msg = Mail::Message->read( \*STDIN );
   my $url = $msg->get("X-Bookmark-URL");
 
   system( 'xdg-open', $url ) == 0 or die "system failed: $?";
@@ -58,6 +60,7 @@ if ( $cmd =~ /^o/ ) {
   my $ua = LWP::UserAgent->new;
   $ua->timeout(10);
   $ua->env_proxy;
+  $ua->ssl_opts( verify_hostname => 0, SSL_verify_mode => 0x00 );
 
   my $response = $ua->get($address);
 
@@ -65,7 +68,18 @@ if ( $cmd =~ /^o/ ) {
   my $title;
   if ( $response->is_success ) {
     $content = $response->decoded_content;
-    $title   = $response->title;
+    my $tree = HTML::Tree->new();
+
+    $tree->parse($content);
+
+    ($title) = $tree->look_down( '_tag', 'title' );
+    if ($title) {
+
+      $title = encode( "MIME-Header", $title->as_text );
+    } else {
+      $title = $response->title || '';
+    }
+
   } else {
     warn $response->status_line;
     $content = '';
@@ -90,8 +104,8 @@ if ( $cmd =~ /^o/ ) {
     'X-Bookmark-URL' => $address,
   );
   if ( @{ $opt{note} } ) {
-    #$string = "NOTES:\n" . join( "\n\n", @{$opt{note}} ) . "\n\n--\n\n" . $string;
-    $msg_info{'X-Bookmark-Notes'} = $opt{note};
+    $string = "NOTES:\n\n" . join( "\n\n", @{ $opt{note} } ) . "\n\n\n--\n\n" . $string;
+    #$msg_info{'X-Bookmark-Notes'} = $opt{note};
   }
   $msg_info{data} = $string;
 
