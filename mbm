@@ -66,7 +66,7 @@ if ( $cmd =~ /^o/ ) {
 
   my $content;
   my $title;
-  if ( $response->is_success ) {
+  if ( $response->is_success && $response->content_is_text) {
     $content = $response->decoded_content;
     my $tree = HTML::Tree->new();
 
