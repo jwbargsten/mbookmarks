@@ -45,8 +45,9 @@ if ( $cmd =~ /^o/ ) {
   create_bookmarks_dir($bookmark_dir);
   system( 'mutt',        '-f',  $bookmark_dir ) == 0 or die "system failed: $?";
   system( @GIT_BASE_CMD, 'add', '.' ) == 0           or die "system failed: $?";
-  system( @GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0
-    or die "system failed: $?";
+  if ( system( @GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark' ) != 0 and $? >> 8 != 1 ) {
+    die sprintf "git exited with value %d\n", $? >> 8;
+  }
 } elsif ( $cmd =~ /^a/ ) {
   #add
 
@@ -121,7 +122,7 @@ if ( $cmd =~ /^o/ ) {
   my $msg = Mail::Message->build(%msg_info);
 
   $folder->addMessage($msg);
-  $msg->label(seen => 1);
+  $msg->label( seen => 1 );
   $msg->accept(1);
 
   $folder->close;
