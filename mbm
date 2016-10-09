@@ -121,8 +121,8 @@ if ( $cmd =~ /^o/ ) {
   my $msg = Mail::Message->build(%msg_info);
 
   $folder->addMessage($msg);
-  #$msg->label(seen => 1);
-  #$msg->accept(1);
+  $msg->label(seen => 1);
+  $msg->accept(1);
 
   $folder->close;
   system( @GIT_BASE_CMD, 'add', '.' ) == 0 or die "system failed: $?";
