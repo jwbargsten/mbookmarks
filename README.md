@@ -46,5 +46,10 @@ Use mbm open as pager to open the URLs in xdg-open
 
     set editor="vim -f"
     set my_name="Name"
+    set realname = $my_name
+
     macro index,pager X "<pipe-entry>mbm open<enter>"
     macro index,pager \cb <pipe-entry>'urlview'<enter> 'Follow links with urlview'
+
+    ignore * 
+    unignore x-bookmark-url from to date subject
