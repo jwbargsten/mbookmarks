@@ -44,5 +44,7 @@ Use mbm open as pager to open the URLs in xdg-open
 
 `~/.muttrc`:
 
-    macro pager | "<pipe-entry>mbm open<enter>"
-    macro attach | "<pipe-entry>mbm open<enter>"
+    set editor="vim -f"
+    set my_name="Name"
+    macro index,pager X "<pipe-entry>mbm open<enter>"
+    macro index,pager \cb <pipe-entry>'urlview'<enter> 'Follow links with urlview'
