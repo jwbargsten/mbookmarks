@@ -52,4 +52,4 @@ Use mbm open as pager to open the URLs in xdg-open
     macro index,pager \cb <pipe-entry>'urlview'<enter> 'Follow links with urlview'
 
     ignore * 
-    unignore x-bookmark-url from to date subject
+    unignore x-bookmark-url x-bookmark-tags from to date subject
