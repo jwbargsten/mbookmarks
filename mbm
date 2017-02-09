@@ -72,6 +72,7 @@ if ( $cmd =~ /^o/ ) {
   my $response = $ua->get($address);
 
   my $content;
+  my @parts;
   my $title;
   if ( $response->is_success && $response->content_is_text ) {
     $content = $response->decoded_content;
@@ -87,6 +88,18 @@ if ( $cmd =~ /^o/ ) {
       $title = $response->title || '';
     }
 
+  } elsif ( $response->is_success ) {
+    my $tmp = $response->content;
+    open my $file_fh, '<', \$tmp or die "Can't open filehandle: $!";
+    my $body = Mail::Message::Body::File->new(
+      file        => $file_fh,
+      mime_type   => $response->content_type,
+      description => ( $response->filename || "unbenannt" ),
+    );
+    close $file_fh;
+    push @parts, $body;
+    $content = '';
+    $title   = $uri->authority . $uri->path;
   } else {
     warn $response->status_line;
     $content = '';
@@ -111,16 +124,19 @@ if ( $cmd =~ /^o/ ) {
     'X-Bookmark-URL' => $address,
   );
   if ( @{ $opt{note} } ) {
-    $string = "NOTES:\n\n" . join( "\n\n", @{ $opt{note} } ) . "\n\n\n--\n\n" . $string;
+    $string = "NOTES\n\n" . join( "\n\n", @{ $opt{note} } ) . "\n\n\n--\n\n" . $string;
     #$msg_info{'X-Bookmark-Notes'} = $opt{note};
   }
-  $msg_info{data} = $string;
 
   if ( @{ $opt{tag} } ) {
     $msg_info{'X-Bookmark-Tags'} = $opt{tag};
   }
 
-  my $msg = Mail::Message->build(%msg_info);
+  if ($string && $string !~ /^\s*$/) {
+    my $main_body = Mail::Message::Body::String->new( data => $string, description => "bookmark text" );
+    unshift @parts, $main_body;
+  }
+  my $msg = Mail::Message->build( %msg_info, attach => \@parts );
 
   $folder->addMessage($msg);
   $msg->label( seen => 1 );
