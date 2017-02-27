@@ -18,6 +18,7 @@ use URI;
 use Encode;
 use HTML::Tree;
 # LWP::Protocol::https
+use FindBin qw/$RealBin/;
 
 use Pod::Usage;
 use Getopt::Long;
@@ -35,6 +36,10 @@ if ( $cmd =~ /^o/ ) {
   my $url = $msg->get("X-Bookmark-URL");
 
   system( 'xdg-open', $url ) == 0 or die "system failed: $?";
+} elsif($cmd =~ /w/) {
+  # web
+
+ system("morbo","--listen", 'http://localhost:4321', "$RealBin/mbm-web.pl") == 0 or die "system failed: $?";
 } elsif ( $cmd =~ /^g/ ) {
   # git
   create_bookmarks_dir($bookmark_dir);
