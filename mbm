@@ -8,6 +8,7 @@ use IO::Handle ();
 
 use Mail::Box::Maildir;
 use Mail::Message;
+use HTTP::CookieJar::LWP ();
 use Mail::Message::Body;
 use File::Spec;
 use HTML::FormatText;
@@ -28,78 +29,91 @@ my $cmd = shift;
 die "no command" unless ($cmd);
 my $bookmark_dir = "$ENV{HOME}/.mbookmarks";
 
-my @GIT_BASE_CMD = ( 'git', "--git-dir=$bookmark_dir/.git", "--work-tree=$bookmark_dir" );
+my @GIT_BASE_CMD = ('git', "--git-dir=$bookmark_dir/.git", "--work-tree=$bookmark_dir");
 
-if ( $cmd =~ /^o/ ) {
+if ($cmd =~ /^o/) {
 
-  my $msg = Mail::Message->read( \*STDIN );
+  my $msg = Mail::Message->read(\*STDIN);
   my $url = $msg->get("X-Bookmark-URL");
 
-  system( 'xdg-open', $url ) == 0 or die "system failed: $?";
-} elsif($cmd =~ /w/) {
+  system('xdg-open', $url) == 0 or die "system failed: $?";
+} elsif ($cmd =~ /w/) {
   # web
 
- system("morbo","--listen", 'http://localhost:4321', "$RealBin/mbm-web.pl") == 0 or die "system failed: $?";
-} elsif ( $cmd =~ /^g/ ) {
+  system("morbo", "--listen", 'http://localhost:4321', "$RealBin/mbm-web.pl") == 0 or die "system failed: $?";
+} elsif ($cmd =~ /^g/) {
   # git
   create_bookmarks_dir($bookmark_dir);
 
-  system( @GIT_BASE_CMD, @ARGV ) == 0 or die "system failed: $?";
-} elsif ( $cmd =~ /^m/ ) {
+  system(@GIT_BASE_CMD, @ARGV) == 0 or die "system failed: $?";
+} elsif ($cmd =~ /^m/) {
   #mutt
 
   create_bookmarks_dir($bookmark_dir);
-  system( 'neomutt',        '-f',  $bookmark_dir ) == 0 or die "system failed: $?";
-  system( @GIT_BASE_CMD, 'add', '.' ) == 0           or die "system failed: $?";
-  if ( system( @GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark' ) != 0 and $? >> 8 != 1 ) {
+  system('neomutt',     '-f',  $bookmark_dir) == 0 or die "system failed: $?";
+  system(@GIT_BASE_CMD, 'add', '.') == 0           or die "system failed: $?";
+  if (system(@GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark') != 0 and $? >> 8 != 1) {
     die sprintf "git exited with value %d\n", $? >> 8;
   }
-} elsif ( $cmd =~ /^a/ ) {
+} elsif ($cmd =~ /^a/) {
   #add
 
   create_bookmarks_dir($bookmark_dir);
 
-  my %opt = ( tag => [], note => [] );
-  GetOptions( \%opt, 'help', 'tag|t=s@', 'note|n=s@' ) or pod2usage(2);
+  my %opt = (tag => [], note => []);
+  GetOptions(\%opt, 'help', 'tag|t=s@', 'note|n=s@') or pod2usage(2);
 
-  pod2usage( -exitval => 0, -verbose => 2 ) if ( $opt{help} );
+  pod2usage(-exitval => 0, -verbose => 2) if ($opt{help});
   pod2usage(2)
-    unless ( @ARGV && @ARGV > 0 );
+    unless (@ARGV && @ARGV > 0);
 
   my $address = shift;
   my $uri     = URI->new($address);
 
-  my $ua = LWP::UserAgent->new;
-  $ua->timeout(10);
+  my $jar = HTTP::CookieJar::LWP->new;
+  my $ua  = LWP::UserAgent->new(
+    cookie_jar        => $jar,
+    protocols_allowed => [ 'http', 'https' ],
+    timeout           => 10,
+  );
   $ua->env_proxy;
-  $ua->ssl_opts( verify_hostname => 0, SSL_verify_mode => 0x00 );
+  $ua->ssl_opts(verify_hostname => 0, SSL_verify_mode => 0x00);
 
-  my $response = $ua->get($address);
+  my $response = $ua->get(
+    $address,
+    "User-Agent" =>
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11",
+    "Accept"          => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Charset"  => "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
+    "Accept-Encoding" => "none",
+    "Accept-Language" => "en-US,en;q=0.8",
+    "Connection"      => "keep-alive",
+  );
 
   my $content;
   my @parts;
   my $title;
-  if ( $response->is_success && $response->content_is_text ) {
+  if ($response->is_success && $response->content_is_text) {
     $content = $response->decoded_content;
     my $tree = HTML::Tree->new();
 
     $tree->parse($content);
 
-    ($title) = $tree->look_down( '_tag', 'title' );
+    ($title) = $tree->look_down('_tag', 'title');
     if ($title) {
 
-      $title = encode( "MIME-Header", $title->as_text );
+      $title = encode("MIME-Header", $title->as_text);
     } else {
       $title = $response->title || '';
     }
 
-  } elsif ( $response->is_success ) {
+  } elsif ($response->is_success) {
     my $tmp = $response->content;
     open my $file_fh, '<', \$tmp or die "Can't open filehandle: $!";
     my $body = Mail::Message::Body::File->new(
       file        => $file_fh,
       mime_type   => $response->content_type,
-      description => ( $response->filename || "unbenannt" ),
+      description => ($response->filename || "unbenannt"),
     );
     close $file_fh;
     push @parts, $body;
@@ -111,7 +125,7 @@ if ( $cmd =~ /^o/ ) {
     $title   = $uri->authority . $uri->path;
   }
 
-  my $to = join( '@', $ENV{USER}, ( $ENV{HOSTNAME} || hostname() ) );
+  my $to = join('@', $ENV{USER}, ($ENV{HOSTNAME} || hostname()));
 
   my $string = HTML::FormatText->format_string(
     $content,
@@ -119,7 +133,7 @@ if ( $cmd =~ /^o/ ) {
     rightmargin => 111,
   );
 
-  my $folder = Mail::Box::Maildir->new( 'folder' => $bookmark_dir, access => 'rw', create => 1 );
+  my $folder = Mail::Box::Maildir->new('folder' => $bookmark_dir, access => 'rw', create => 1);
   $folder->createDirs($bookmark_dir);
 
   my %msg_info = (
@@ -128,28 +142,28 @@ if ( $cmd =~ /^o/ ) {
     Subject          => $title,
     'X-Bookmark-URL' => $address,
   );
-  if ( @{ $opt{note} } ) {
-    $string = "NOTES\n\n" . join( "\n\n", @{ $opt{note} } ) . "\n\n\n--\n\n" . $string;
+  if (@{ $opt{note} }) {
+    $string = "NOTES\n\n" . join("\n\n", @{ $opt{note} }) . "\n\n\n--\n\n" . $string;
     #$msg_info{'X-Bookmark-Notes'} = $opt{note};
   }
 
-  if ( @{ $opt{tag} } ) {
+  if (@{ $opt{tag} }) {
     $msg_info{'X-Bookmark-Tags'} = $opt{tag};
   }
 
   if ($string && $string !~ /^\s*$/) {
-    my $main_body = Mail::Message::Body::String->new( data => $string, description => "bookmark text" );
+    my $main_body = Mail::Message::Body::String->new(data => $string, description => "bookmark text");
     unshift @parts, $main_body;
   }
-  my $msg = Mail::Message->build( %msg_info, attach => \@parts );
+  my $msg = Mail::Message->build(%msg_info, attach => \@parts);
 
   $folder->addMessage($msg);
-  $msg->label( seen => 1 );
+  $msg->label(seen => 1);
   $msg->accept(1);
 
   $folder->close;
-  system( @GIT_BASE_CMD, 'add', '.' ) == 0 or die "system failed: $?";
-  system( @GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark' ) == 0
+  system(@GIT_BASE_CMD, 'add', '.') == 0 or die "system failed: $?";
+  system(@GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark') == 0
     or die "system failed: $?";
 } else {
   die "command not recognised";
@@ -157,13 +171,13 @@ if ( $cmd =~ /^o/ ) {
 
 sub create_bookmarks_dir {
   my $bookmark_dir = shift;
-  return if ( -d $bookmark_dir );
-  system( 'mkdir', '-p', $bookmark_dir ) == 0 or die "system failed: $?";
+  return if (-d $bookmark_dir);
+  system('mkdir', '-p', $bookmark_dir) == 0 or die "system failed: $?";
   for my $dir (qw/tmp cur new/) {
-    system( 'mkdir', '-p', "$bookmark_dir/$dir" ) == 0 or die "system failed: $?";
-    system( 'touch', "$bookmark_dir/$dir/.gitkeep" ) == 0 or die "system failed: $?";
+    system('mkdir', '-p', "$bookmark_dir/$dir") == 0 or die "system failed: $?";
+    system('touch', "$bookmark_dir/$dir/.gitkeep") == 0 or die "system failed: $?";
   }
-  system( @GIT_BASE_CMD, 'init' ) == 0 or die "system failed: $?";
-  system( @GIT_BASE_CMD, 'add', '.' ) == 0 or die "system failed: $?";
-  system( @GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] initial commit' ) == 0;
+  system(@GIT_BASE_CMD, 'init') == 0 or die "system failed: $?";
+  system(@GIT_BASE_CMD, 'add', '.') == 0 or die "system failed: $?";
+  system(@GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] initial commit') == 0;
 }
