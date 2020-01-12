@@ -50,9 +50,9 @@ if ($cmd =~ /^o/) {
   #mutt
 
   create_bookmarks_dir($bookmark_dir);
-  system('neomutt',     '-f',  $bookmark_dir) == 0 or die "system failed: $?";
-  system(@GIT_BASE_CMD, 'add', '.') == 0           or die "system failed: $?";
-  if (system(@GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark') != 0 and $? >> 8 != 1) {
+  system( 'neomutt',        '-f',  $bookmark_dir ) == 0 or die "system failed: $?";
+  system( @GIT_BASE_CMD, 'add', '.' ) == 0           or die "system failed: $?";
+  if ( system( @GIT_BASE_CMD, 'commit', '-a', '-m', '[mbm] added bookmark' ) != 0 and $? >> 8 != 1 ) {
     die sprintf "git exited with value %d\n", $? >> 8;
   }
 } elsif ($cmd =~ /^a/) {
@@ -60,8 +60,8 @@ if ($cmd =~ /^o/) {
 
   create_bookmarks_dir($bookmark_dir);
 
-  my %opt = (tag => [], note => []);
-  GetOptions(\%opt, 'help', 'tag|t=s@', 'note|n=s@') or pod2usage(2);
+  my %opt = ( tag => [], 'keyword' => [], note => [] );
+  GetOptions( \%opt, 'help', 'keyword|kw|k=s@', 'tag|t=s@', 'note|n=s@' ) or pod2usage(2);
 
   pod2usage(-exitval => 0, -verbose => 2) if ($opt{help});
   pod2usage(2)
@@ -149,6 +149,9 @@ if ($cmd =~ /^o/) {
 
   if (@{ $opt{tag} }) {
     $msg_info{'X-Bookmark-Tags'} = $opt{tag};
+  }
+  if ( @{ $opt{keyword} } ) {
+    $msg_info{'X-Bookmark-Keywords'} = $opt{keywords};
   }
 
   if ($string && $string !~ /^\s*$/) {
